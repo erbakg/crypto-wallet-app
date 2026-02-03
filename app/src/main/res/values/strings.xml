@@ -15,6 +15,7 @@
     <string name="email_label">Email</string>
     <string name="email_placeholder">you@example.com</string>
     <string name="send_otp_button">Send Email OTP</string>
+    <string name="login_button">Login with Dynamic</string>
 
     <!-- OTP Verification -->
     <string name="verify_email_title">Verify Email</string>

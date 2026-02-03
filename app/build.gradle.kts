@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // Load local.properties
@@ -22,7 +23,7 @@ android {
 
     defaultConfig {
         applicationId = "com.erbol.testnetwallet"
-        minSdk = 24
+        minSdk = 28  // Dynamic SDK requires minSdk 28
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -31,12 +32,6 @@ android {
 
         // Dynamic SDK Environment ID
         buildConfigField("String", "DYNAMIC_ENVIRONMENT_ID", "\"${localProperties.getProperty("DYNAMIC_ENVIRONMENT_ID", "")}\"")
-
-        // Dynamic API Token
-        buildConfigField("String", "DYNAMIC_API_TOKEN", "\"${localProperties.getProperty("DYNAMIC_API_TOKEN", "")}\"")
-
-        // MetaMask/Infura API Key for Sepolia RPC
-        buildConfigField("String", "INFURA_API_KEY", "\"${localProperties.getProperty("INFURA_API_KEY", "")}\"")
     }
 
     buildTypes {
@@ -62,18 +57,34 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            excludes += "/META-INF/DISCLAIMER"
-            excludes += "META-INF/INDEX.LIST"
-            excludes += "META-INF/io.netty.versions.properties"
         }
     }
 }
 
 dependencies {
+    // ==========================================
+    // Dynamic SDK AAR
+    // ==========================================
+    implementation(files("libs/dynamic-sdk-android.aar"))
+
+    // Required transitive dependencies for Dynamic SDK
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.webkit)
+    implementation(libs.androidx.browser)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.tink.android)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.play.services.auth)
+    implementation(libs.okhttp)
+
+    // ==========================================
     // Core Android
+    // ==========================================
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
 
     // Compose
@@ -83,6 +94,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.runtime)
 
     // Navigation
     implementation(libs.androidx.navigation.compose)
@@ -92,23 +105,9 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
-    // Retrofit + OkHttp
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.converter.gson)
-    implementation(libs.okhttp)
-    implementation(libs.okhttp.logging)
-
-    // Web3j for Ethereum interactions
-    implementation(libs.web3j.core)
-
-    // DataStore
-    implementation(libs.datastore.preferences)
-
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
-
-    // Note: Using Material3 PullToRefreshBox instead of deprecated Accompanist
 
     // Testing
     testImplementation(libs.junit)
