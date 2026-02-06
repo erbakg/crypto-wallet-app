@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.dynamic.sdk.android.DynamicSDK
 import com.dynamic.sdk.android.Chains.EVM.EthereumTransaction
 import com.dynamic.sdk.android.Chains.EVM.convertEthToWei
+import com.dynamic.sdk.android.Models.Network
 import com.erbol.testnetwallet.common.Constants
+import org.json.JSONObject
 import com.erbol.testnetwallet.common.UiState
 import com.erbol.testnetwallet.domain.model.TransactionResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,7 +34,7 @@ class SendTransactionViewModel @Inject constructor() : ViewModel() {
         get() = DynamicSDK.getInstance()
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
-        _uiState.value = UiState.Error(throwable.message ?: "Unknown error")
+        _uiState.value = UiState.Error(mapErrorMessage(throwable.message))
     }
 
     fun onRecipientChanged(address: String) {
@@ -113,6 +115,9 @@ class SendTransactionViewModel @Inject constructor() : ViewModel() {
                     it.chain.uppercase() == "EVM"
                 } ?: throw IllegalStateException("No EVM wallet found")
 
+                // Switch to Sepolia network
+                sdk.wallets.switchNetwork(wallet, Network.evm(Constants.SEPOLIA_CHAIN_ID.toInt()))
+
                 // Get gas prices
                 val client = sdk.evm.createPublicClient(Constants.SEPOLIA_CHAIN_ID.toInt())
                 val gasPrice = client.getGasPrice()
@@ -139,7 +144,7 @@ class SendTransactionViewModel @Inject constructor() : ViewModel() {
                     )
                 )
             } catch (e: Exception) {
-                _uiState.value = UiState.Error(e.message ?: "Transaction failed")
+                _uiState.value = UiState.Error(mapErrorMessage(e.message))
             }
         }
     }
@@ -152,6 +157,39 @@ class SendTransactionViewModel @Inject constructor() : ViewModel() {
     fun clearError() {
         if (_uiState.value is UiState.Error) {
             _uiState.value = UiState.Idle
+        }
+    }
+
+    private fun mapErrorMessage(message: String?): String {
+        if (message == null) return "Transaction failed"
+        val parsed = try {
+            JSONObject(message).optString("message", message)
+        } catch (_: Exception) {
+            message
+        }
+        return when {
+            parsed.contains("No EVM provider with chain") ->
+                "Sepolia network is not available. Please check your Dynamic Dashboard configuration."
+
+            parsed.contains("insufficient funds", ignoreCase = true) ->
+                "Insufficient funds. Please get SepoliaETH from a faucet."
+
+            parsed.contains("No EVM wallet found", ignoreCase = true) ->
+                "No wallet found. Please log in again."
+
+            parsed.contains("User rejected", ignoreCase = true) ->
+                "Transaction was cancelled."
+
+            parsed.contains("nonce", ignoreCase = true) ->
+                "Transaction conflict. Please try again."
+
+            parsed.contains("gas", ignoreCase = true) ->
+                "Gas estimation failed. Please try again."
+
+            parsed.contains("timeout", ignoreCase = true) ->
+                "Network timeout. Please check your connection and try again."
+
+            else -> parsed
         }
     }
 }

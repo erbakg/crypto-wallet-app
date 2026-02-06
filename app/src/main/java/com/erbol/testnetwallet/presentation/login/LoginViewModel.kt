@@ -41,6 +41,9 @@ class LoginViewModel @Inject constructor() : ViewModel() {
             sdk.wallets.userWalletsChanges.collect { wallets ->
                 val evmWallet = wallets.firstOrNull { it.chain.uppercase() == "EVM" }
                 if (evmWallet != null) {
+                    // Hide the auth WebView immediately
+                    sdk.webViewController.visibility.setOverrideVisible(false)
+
                     _uiState.value = UiState.Success(
                         LoginResult(walletAddress = evmWallet.address)
                     )

@@ -6,10 +6,12 @@ import com.dynamic.sdk.android.DynamicSDK
 import com.dynamic.sdk.android.Chains.EVM.EthereumTransaction
 import com.dynamic.sdk.android.Chains.EVM.convertEthToWei
 import com.dynamic.sdk.android.Models.BaseWallet
+import com.dynamic.sdk.android.Models.Network
 import com.erbol.testnetwallet.common.Constants
 import com.erbol.testnetwallet.common.UiState
 import com.erbol.testnetwallet.domain.model.WalletInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
+import org.json.JSONObject
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +34,7 @@ class WalletViewModel @Inject constructor() : ViewModel() {
         get() = DynamicSDK.getInstance()
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
-        _uiState.value = UiState.Error(throwable.message ?: "Unknown error")
+        _uiState.value = UiState.Error(parseErrorMessage(throwable.message))
         _walletUiState.update { it.copy(isRefreshing = false) }
     }
 
@@ -55,6 +57,8 @@ class WalletViewModel @Inject constructor() : ViewModel() {
 
     private suspend fun loadWalletInfo(wallet: BaseWallet) {
         try {
+            sdk.wallets.switchNetwork(wallet, Network.evm(Constants.SEPOLIA_CHAIN_ID.toInt()))
+
             val balance = sdk.wallets.getBalance(wallet)
 
             _uiState.value = UiState.Success(
@@ -91,7 +95,7 @@ class WalletViewModel @Inject constructor() : ViewModel() {
                     currentWalletInfo.copy(balanceEth = balance.toBigDecimal())
                 )
             } catch (e: Exception) {
-                _uiState.value = UiState.Error(e.message ?: "Failed to refresh balance")
+                _uiState.value = UiState.Error(parseErrorMessage(e.message))
             }
 
             _walletUiState.update { it.copy(isRefreshing = false) }
@@ -112,7 +116,7 @@ class WalletViewModel @Inject constructor() : ViewModel() {
                 sdk.auth.logout()
                 _walletUiState.update { it.copy(isLoggedOut = true) }
             } catch (e: Exception) {
-                _uiState.value = UiState.Error(e.message ?: "Logout failed")
+                _uiState.value = UiState.Error(parseErrorMessage(e.message))
             }
         }
     }
@@ -120,6 +124,15 @@ class WalletViewModel @Inject constructor() : ViewModel() {
     fun clearError() {
         if (_uiState.value is UiState.Error) {
             _uiState.value = UiState.Idle
+        }
+    }
+
+    private fun parseErrorMessage(message: String?): String {
+        if (message == null) return "Unknown error"
+        return try {
+            JSONObject(message).optString("message", message)
+        } catch (_: Exception) {
+            message
         }
     }
 }
